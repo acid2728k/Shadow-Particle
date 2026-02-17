@@ -1,0 +1,19 @@
+{
+  "name": "shadow-particle",
+  "private": true,
+  "workspaces": [
+    "shared/protocol",
+    "apps/bridge",
+    "apps/frontend"
+  ],
+  "scripts": {
+    "dev:bridge": "npm run dev -w @sp/bridge",
+    "dev:frontend": "npm run dev -w @sp/frontend",
+    "dev": "concurrently \"npm:dev:bridge\" \"npm:dev:frontend\"",
+    "build": "npm run build -w @sp/frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "typescript": "^5.6.0"
+  }
+}
