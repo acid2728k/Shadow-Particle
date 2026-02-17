@@ -5,6 +5,7 @@ export interface AppParams {
   maxParticles: number;
   emitRate: number;
   baseSize: number;
+  particleIntensity: number; // per-particle brightness 0..1
   decayRate: number;
   spread: number;
 
@@ -33,16 +34,17 @@ export interface AppParams {
 
 export const defaultParams: AppParams = {
   maxParticles: 80000,
-  emitRate: 600,
-  baseSize: 3.0,
-  decayRate: 0.55,
+  emitRate: 350,
+  baseSize: 2.2,
+  particleIntensity: 0.12,
+  decayRate: 0.65,
   spread: 4.0,
   nearClamp: 800,
   farClamp: 4000,
   depthSpread: 3.0,
   sizeByDepth: 0.7,
   alphaByDepth: 0.6,
-  feedbackStrength: 0.93,
+  feedbackStrength: 0.88,
   backgroundDensity: 4000,
   backgroundOpacity: 0.4,
   maskThreshold: 0,
@@ -56,6 +58,7 @@ export function createGUI(params: AppParams): GUI {
   const pf = gui.addFolder('Particles');
   pf.add(params, 'emitRate', 50, 2500, 25).name('Emit / frame');
   pf.add(params, 'baseSize', 0.5, 8, 0.1).name('Base size');
+  pf.add(params, 'particleIntensity', 0.02, 0.5, 0.01).name('Intensity');
   pf.add(params, 'decayRate', 0.1, 2.0, 0.05).name('Decay rate');
   pf.add(params, 'spread', 1, 8, 0.1).name('Spread');
 

@@ -38,6 +38,7 @@ const fragmentShader = /* glsl */ `
   varying float vDepthNorm;
 
   uniform float uAlphaByDepth;
+  uniform float uIntensity;
   uniform vec3  uColorNear;
   uniform vec3  uColorFar;
 
@@ -46,13 +47,14 @@ const fragmentShader = /* glsl */ `
     float d = length(c);
     if (d > 0.5) discard;
 
-    float soft = smoothstep(0.5, 0.08, d);
+    float soft = smoothstep(0.5, 0.05, d);
 
     vec3 col = mix(uColorNear, uColorFar, vDepthNorm);
 
     float a = soft;
     a *= smoothstep(0.0, 0.25, vLife);
     a *= mix(1.0, max(0.12, 1.0 - vDepthNorm * 0.75), uAlphaByDepth);
+    a *= uIntensity;
 
     gl_FragColor = vec4(col, a);
   }
@@ -105,6 +107,7 @@ export class ParticleSystem {
       uniforms: {
         uSizeByDepth: { value: params.sizeByDepth },
         uAlphaByDepth: { value: params.alphaByDepth },
+        uIntensity: { value: params.particleIntensity },
         uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) },
         uColorNear: { value: new THREE.Color(1.0, 0.88, 0.55) },
         uColorFar: { value: new THREE.Color(0.3, 0.5, 1.0) },
@@ -130,6 +133,7 @@ export class ParticleSystem {
     // Sync uniforms
     this.mat.uniforms.uSizeByDepth.value = p.sizeByDepth;
     this.mat.uniforms.uAlphaByDepth.value = p.alphaByDepth;
+    this.mat.uniforms.uIntensity.value = p.particleIntensity;
 
     this.stepExisting(dt, p);
     if (mask) this.emit(mask, depth, p);
@@ -161,15 +165,15 @@ export class ParticleSystem {
       pos[i3 + 1] += vel[i3 + 1] * dt;
       pos[i3 + 2] += vel[i3 + 2] * dt;
 
-      // Turbulence
-      vel[i3] += (Math.random() - 0.5) * 0.08 * dt;
-      vel[i3 + 1] += (Math.random() - 0.5) * 0.08 * dt + 0.012 * dt;
-      vel[i3 + 2] += (Math.random() - 0.5) * 0.04 * dt;
+      // Turbulence — stronger to keep particles feeling alive
+      vel[i3] += (Math.random() - 0.5) * 0.25 * dt;
+      vel[i3 + 1] += (Math.random() - 0.5) * 0.2 * dt + 0.025 * dt;
+      vel[i3 + 2] += (Math.random() - 0.5) * 0.12 * dt;
 
       // Damping
-      vel[i3] *= 0.997;
-      vel[i3 + 1] *= 0.997;
-      vel[i3 + 2] *= 0.997;
+      vel[i3] *= 0.994;
+      vel[i3 + 1] *= 0.994;
+      vel[i3 + 2] *= 0.994;
     }
   }
 
@@ -207,20 +211,20 @@ export class ParticleSystem {
       }
       const z = -dn * p.depthSpread;
 
-      const jitter = 0.018;
+      const jitter = 0.07;
       this.positions[i3] = nx + (Math.random() - 0.5) * jitter;
       this.positions[i3 + 1] = ny + (Math.random() - 0.5) * jitter;
-      this.positions[i3 + 2] = z + (Math.random() - 0.5) * jitter;
+      this.positions[i3 + 2] = z + (Math.random() - 0.5) * jitter * 0.5;
 
-      const isAura = Math.random() < 0.12;
-      const vScale = isAura ? 0.06 : 0.14;
+      const isAura = Math.random() < 0.15;
+      const vScale = isAura ? 0.12 : 0.35;
       this.velocities[i3] = (Math.random() - 0.5) * vScale;
-      this.velocities[i3 + 1] = (Math.random() - 0.5) * vScale + (isAura ? 0.015 : 0.03);
-      this.velocities[i3 + 2] = (Math.random() - 0.5) * vScale * 0.25;
+      this.velocities[i3 + 1] = (Math.random() - 0.5) * vScale + (isAura ? 0.02 : 0.06);
+      this.velocities[i3 + 2] = (Math.random() - 0.5) * vScale * 0.3;
 
-      this.lives[idx] = isAura ? 1.5 + Math.random() * 2.0 : 0.4 + Math.random() * 1.2;
-      this.sizes[idx] = p.baseSize * (isAura ? 2.0 + Math.random() * 2.0 : 0.3 + Math.random() * 0.8);
-      this.depthNorms[idx] = isAura ? Math.min(1, dn + 0.15) : dn;
+      this.lives[idx] = isAura ? 1.8 + Math.random() * 2.5 : 0.5 + Math.random() * 1.5;
+      this.sizes[idx] = p.baseSize * (isAura ? 1.8 + Math.random() * 2.5 : 0.4 + Math.random() * 1.0);
+      this.depthNorms[idx] = isAura ? Math.min(1, dn + 0.2) : dn;
 
       emitted++;
     }

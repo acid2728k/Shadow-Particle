@@ -75,8 +75,9 @@ export class TrailRenderer {
         varying vec2 vUv;
         void main() {
           vec4 c = texture2D(tFrame, vUv);
-          // Subtle tone-map / bloom lift
-          c.rgb = 1.0 - exp(-c.rgb * 1.4);
+          // Filmic tone-map: compress highlights, prevent whiteout
+          vec3 x = max(vec3(0.0), c.rgb - 0.004);
+          c.rgb = (x * (6.2 * x + 0.5)) / (x * (6.2 * x + 1.7) + 0.06);
           gl_FragColor = c;
         }
       `,
