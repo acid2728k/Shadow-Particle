@@ -1,6 +1,6 @@
 # Shadow Particle
 
-Interactive "shadow particle projection" inspired by teamLab: a person's silhouette + depth → particles that follow the body shape with trails, depth layering, and an atmospheric background.
+Interactive "Shadow particle projection" inspired by teamLab: a person's silhouette + depth → particles that follow the body shape with trails, depth layering, and an atmospheric background.
 
 ## Architecture
 
