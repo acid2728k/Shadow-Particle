@@ -99,7 +99,7 @@ export class SceneManager {
     const parallax = mask ? this.centroid(mask) : { x: 0, y: 0 };
 
     this.particles.update(dt, mask, depth, this.params);
-    this.stars.update(dt, parallax);
+    this.stars.update(dt, this.params, parallax);
     this.trails.setDecay(this.params.feedbackStrength);
     this.trails.render(this.renderer, this.scene, this.camera);
 

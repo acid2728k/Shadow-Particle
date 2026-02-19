@@ -24,6 +24,12 @@ export interface AppParams {
   /* Background */
   backgroundDensity: number;
   backgroundOpacity: number;
+  bgMode: string;         // 'static' | 'animated'
+  bgSparkleType: string;  // 'dots' | 'stars' | 'dust' | 'bokeh'
+  bgAnimSpeed: number;    // 0..3
+  bgSparkleSize: number;  // 0.5..10
+  bgColor1: string;       // hex
+  bgColor2: string;       // hex
 
   /* Mask */
   maskThreshold: number;
@@ -46,7 +52,13 @@ export const defaultParams: AppParams = {
   alphaByDepth: 0.6,
   feedbackStrength: 0.88,
   backgroundDensity: 4000,
-  backgroundOpacity: 0.4,
+  backgroundOpacity: 0.5,
+  bgMode: 'animated',
+  bgSparkleType: 'dots',
+  bgAnimSpeed: 1.0,
+  bgSparkleSize: 2.5,
+  bgColor1: '#4488cc',
+  bgColor2: '#9944cc',
   maskThreshold: 0,
   showDebug: false,
 };
@@ -73,14 +85,20 @@ export function createGUI(params: AppParams): GUI {
   tf.add(params, 'feedbackStrength', 0.80, 0.995, 0.005).name('Feedback');
 
   const bf = gui.addFolder('Background');
-  bf.add(params, 'backgroundOpacity', 0, 1, 0.05).name('Opacity');
+  bf.add(params, 'bgMode', { Static: 'static', Animated: 'animated' }).name('Mode');
+  bf.add(params, 'bgSparkleType', { Dots: 'dots', Stars: 'stars', Dust: 'dust', Bokeh: 'bokeh' }).name('Sparkle type');
+  bf.add(params, 'bgSparkleSize', 0.5, 10, 0.1).name('Sparkle size');
+  bf.add(params, 'bgAnimSpeed', 0, 3, 0.05).name('Anim speed');
+  bf.addColor(params, 'bgColor1').name('Color 1');
+  bf.addColor(params, 'bgColor2').name('Color 2');
+  bf.add(params, 'backgroundDensity', 500, 10000, 100).name('Density');
+  bf.add(params, 'backgroundOpacity', 0, 1, 0.02).name('Opacity');
 
   const dbg = gui.addFolder('Debug');
   dbg.add(params, 'showDebug').name('Show mask / depth');
 
   // Collapse by default for cleaner look
   df.close();
-  bf.close();
 
   return gui;
 }
