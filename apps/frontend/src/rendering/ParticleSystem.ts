@@ -39,19 +39,44 @@ const fragmentShader = /* glsl */ `
 
   uniform float uAlphaByDepth;
   uniform float uIntensity;
+  uniform float uShape;     // 0 dots, 1 stars, 2 dust, 3 bokeh
   uniform vec3  uColorNear;
   uniform vec3  uColorFar;
 
   void main() {
-    vec2 c = gl_PointCoord - 0.5;
+    vec2  c = gl_PointCoord - 0.5;
     float d = length(c);
-    if (d > 0.5) discard;
+    float shape = 0.0;
 
-    float soft = smoothstep(0.5, 0.05, d);
+    // ── dots ──
+    if (uShape < 0.5) {
+      if (d > 0.5) discard;
+      shape = smoothstep(0.5, 0.05, d);
+    }
+    // ── 4-point stars ──
+    else if (uShape < 1.5) {
+      float angle = atan(c.y, c.x);
+      float ray   = pow(abs(cos(angle * 2.0)), 6.0);
+      float edge  = mix(0.1, 0.5, ray);
+      if (d > edge) discard;
+      shape = smoothstep(edge, 0.0, d);
+    }
+    // ── dust (soft gaussian) ──
+    else if (uShape < 2.5) {
+      shape = exp(-d * d * 8.0);
+      if (shape < 0.008) discard;
+    }
+    // ── bokeh (ring + fill) ──
+    else {
+      float ring = smoothstep(0.28, 0.36, d) * smoothstep(0.5, 0.42, d);
+      float fill = smoothstep(0.5, 0.0, d) * 0.1;
+      shape = ring + fill;
+      if (shape < 0.008) discard;
+    }
 
     vec3 col = mix(uColorNear, uColorFar, vDepthNorm);
 
-    float a = soft;
+    float a = shape;
     a *= smoothstep(0.0, 0.25, vLife);
     a *= mix(1.0, max(0.12, 1.0 - vDepthNorm * 0.75), uAlphaByDepth);
     a *= uIntensity;
@@ -108,9 +133,10 @@ export class ParticleSystem {
         uSizeByDepth: { value: params.sizeByDepth },
         uAlphaByDepth: { value: params.alphaByDepth },
         uIntensity: { value: params.particleIntensity },
+        uShape: { value: 0 },
         uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) },
-        uColorNear: { value: new THREE.Color(1.0, 0.88, 0.55) },
-        uColorFar: { value: new THREE.Color(0.3, 0.5, 1.0) },
+        uColorNear: { value: new THREE.Color(params.fgColorNear) },
+        uColorFar: { value: new THREE.Color(params.fgColorFar) },
       },
     });
 
@@ -131,9 +157,13 @@ export class ParticleSystem {
     p: AppParams,
   ) {
     // Sync uniforms
+    const SHAPE_ID: Record<string, number> = { dots: 0, stars: 1, dust: 2, bokeh: 3 };
     this.mat.uniforms.uSizeByDepth.value = p.sizeByDepth;
     this.mat.uniforms.uAlphaByDepth.value = p.alphaByDepth;
     this.mat.uniforms.uIntensity.value = p.particleIntensity;
+    this.mat.uniforms.uShape.value = SHAPE_ID[p.fgSparkleType] ?? 0;
+    (this.mat.uniforms.uColorNear.value as THREE.Color).set(p.fgColorNear);
+    (this.mat.uniforms.uColorFar.value as THREE.Color).set(p.fgColorFar);
 
     this.stepExisting(dt, p);
     if (mask) this.emit(mask, depth, p);
@@ -165,10 +195,11 @@ export class ParticleSystem {
       pos[i3 + 1] += vel[i3 + 1] * dt;
       pos[i3 + 2] += vel[i3 + 2] * dt;
 
-      // Turbulence — stronger to keep particles feeling alive
-      vel[i3] += (Math.random() - 0.5) * 0.25 * dt;
-      vel[i3 + 1] += (Math.random() - 0.5) * 0.2 * dt + 0.025 * dt;
-      vel[i3 + 2] += (Math.random() - 0.5) * 0.12 * dt;
+      // Turbulence scaled by anim speed
+      const spd = p.fgAnimSpeed;
+      vel[i3] += (Math.random() - 0.5) * 0.25 * dt * spd;
+      vel[i3 + 1] += (Math.random() - 0.5) * 0.2 * dt * spd + 0.025 * dt * spd;
+      vel[i3 + 2] += (Math.random() - 0.5) * 0.12 * dt * spd;
 
       // Damping
       vel[i3] *= 0.994;
@@ -217,7 +248,7 @@ export class ParticleSystem {
       this.positions[i3 + 2] = z + (Math.random() - 0.5) * jitter * 0.5;
 
       const isAura = Math.random() < 0.15;
-      const vScale = isAura ? 0.12 : 0.35;
+      const vScale = (isAura ? 0.12 : 0.35) * p.fgAnimSpeed;
       this.velocities[i3] = (Math.random() - 0.5) * vScale;
       this.velocities[i3 + 1] = (Math.random() - 0.5) * vScale + (isAura ? 0.02 : 0.06);
       this.velocities[i3 + 2] = (Math.random() - 0.5) * vScale * 0.3;

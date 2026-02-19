@@ -8,6 +8,10 @@ export interface AppParams {
   particleIntensity: number; // per-particle brightness 0..1
   decayRate: number;
   spread: number;
+  fgSparkleType: string;  // 'dots' | 'stars' | 'dust' | 'bokeh'
+  fgColorNear: string;    // hex — color for near particles
+  fgColorFar: string;     // hex — color for far particles
+  fgAnimSpeed: number;    // turbulence / velocity multiplier
 
   /* Depth mapping */
   nearClamp: number;   // mm
@@ -45,6 +49,10 @@ export const defaultParams: AppParams = {
   particleIntensity: 0.12,
   decayRate: 0.65,
   spread: 4.0,
+  fgSparkleType: 'dots',
+  fgColorNear: '#ffdd88',
+  fgColorFar: '#4488ff',
+  fgAnimSpeed: 1.0,
   nearClamp: 800,
   farClamp: 4000,
   depthSpread: 3.0,
@@ -68,9 +76,13 @@ export function createGUI(params: AppParams): GUI {
   gui.domElement.style.zIndex = '200';
 
   const pf = gui.addFolder('Particles');
+  pf.add(params, 'fgSparkleType', { Dots: 'dots', Stars: 'stars', Dust: 'dust', Bokeh: 'bokeh' }).name('Sparkle type');
+  pf.addColor(params, 'fgColorNear').name('Color near');
+  pf.addColor(params, 'fgColorFar').name('Color far');
   pf.add(params, 'emitRate', 50, 2500, 25).name('Emit / frame');
   pf.add(params, 'baseSize', 0.5, 8, 0.1).name('Base size');
   pf.add(params, 'particleIntensity', 0.02, 0.5, 0.01).name('Intensity');
+  pf.add(params, 'fgAnimSpeed', 0.1, 3, 0.05).name('Anim speed');
   pf.add(params, 'decayRate', 0.1, 2.0, 0.05).name('Decay rate');
   pf.add(params, 'spread', 1, 8, 0.1).name('Spread');
 
