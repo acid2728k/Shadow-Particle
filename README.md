@@ -5,8 +5,8 @@ Interactive "shadow particle projection" inspired by teamLab: a person's silhoue
 ## Architecture
 
 ```
-┌──────────────────────┐   WebSocket (binary)   ┌──────────────────────────┐
-│   Bridge (Node.js)   │ ────────────────────▶   │   Frontend (Vite/Three)  │
+┌──────────────────────┐   WebSocket (binary)     ┌──────────────────────────┐
+│   Bridge (Node.js)   │  ───────────────────▶   │  Frontend (Vite/Three)   │
 │                      │   depth + user mask      │                          │
 │  • Mock generator    │   320×240 @ 30fps        │  • 3D particle renderer  │
 │  • Real Kinect v1 *  │                          │  • Feedback trails       │
