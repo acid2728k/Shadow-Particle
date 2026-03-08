@@ -73,20 +73,15 @@ iterative erosion (center of body = closer, edges = further).
 
 Use the **Python Kinect bridge** in this repo. It uses [libfreenect](https://github.com/OpenKinect/libfreenect) and speaks the same WebSocket protocol on port 9876. The mask is built from a **depth threshold** (no multi-user index on Mac).
 
-1. Install libfreenect and Python deps:
-   ```bash
-   brew install libfreenect
-   cd apps/kinect-bridge
-   pip install -r requirements.txt
-   pip install freenect   # or use the Python wrapper from libfreenect repo
-   ```
-2. Plug in the Kinect, then run the bridge:
-   ```bash
-   python kinect_bridge.py
-   ```
-3. Start the frontend as usual (`npm run dev:frontend`). It will connect to `ws://localhost:9876` and show real depth + mask.
+**One command** (from project root, in a terminal where Homebrew is available):
 
-Options: `--port`, `--width`, `--height`, `--near`, `--far`, `--fps`. See `apps/kinect-bridge/README.md`.
+```bash
+npm run dev:kinect
+```
+
+This installs libfreenect (if needed), Python deps, and starts the bridge. Then run the frontend in another terminal (`npm run dev:frontend`) or refresh the app. **Do not run the Node mock bridge** at the same time — only one process on port 9876.
+
+Manual: see `apps/kinect-bridge/README.md`. Options: `--port`, `--width`, `--height`, `--near`, `--far`, `--fps`.
 
 #### Kinect 360 on Windows (Kinect SDK v1.8)
 

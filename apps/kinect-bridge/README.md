@@ -5,7 +5,24 @@ WebSocket server that streams **depth + user mask** from a **Kinect v1 (Xbox 360
 - **macOS**: libfreenect works; user segmentation is approximated from depth threshold (no Windows-style "player index").
 - **Windows**: Prefer the official Kinect SDK v1.8 + C#/Node for real user index; this Python bridge can still be used with libfreenect if you install it.
 
-## Install
+## One-command setup and run (Mac)
+
+From the **Shadow Particle** project root, in a terminal where **Homebrew** is available:
+
+```bash
+npm run dev:kinect
+```
+
+This script will:
+
+1. Install **libfreenect** via Homebrew if missing
+2. Install Python deps: **numpy**, **websockets**
+3. Install **freenect** (Python bindings) if missing
+4. Start the bridge on `ws://localhost:9876`
+
+Then start the frontend (`npm run dev:frontend`) or refresh the app in the browser. **Do not run the Node mock bridge** (`npm run dev:bridge`) at the same time — only one process should use port 9876.
+
+## Manual install and run
 
 ### 1. Install libfreenect
 
@@ -16,40 +33,28 @@ brew install libfreenect
 
 **Linux:** use your distro package (e.g. `libfreenect-dev`) or build from [OpenKinect/libfreenect](https://github.com/OpenKinect/libfreenect).
 
-### 2. Python bindings for libfreenect
-
-**Option A — system Python (often bundled with libfreenect):**
-```bash
-# After brew install libfreenect, check for Python module
-python3 -c "import freenect; print('OK')"
-```
-If that fails, try Option B.
-
-**Option B — pip (if a wrapper is on PyPI):**
-```bash
-pip install freenect
-# or
-pip install pyfreenect
-```
-(If neither exists, use the wrapper from the libfreenect repo under `wrappers/python`.)
-
-### 3. Bridge dependencies
+### 2. Python dependencies
 
 ```bash
 cd apps/kinect-bridge
-pip install -r requirements.txt
+pip3 install -r requirements.txt
+pip3 install freenect
 ```
 
-## Run
+(If `freenect` is not on PyPI, use the wrapper from the libfreenect repo under `wrappers/python`.)
+
+### 3. Run
 
 With the Kinect plugged in:
 
 ```bash
 cd apps/kinect-bridge
-python kinect_bridge.py
+./setup-and-run.sh
+# or
+python3 kinect_bridge.py
 ```
 
-Defaults: `ws://localhost:9876`, 320×240 @ 30 fps. The frontend connects to the same port, so it will receive real depth + mask when this bridge is running.
+Defaults: `ws://localhost:9876`, 320×240 @ 30 fps.
 
 ## Options
 

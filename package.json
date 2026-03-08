@@ -10,6 +10,8 @@
     "dev:bridge": "npm run dev -w @sp/bridge",
     "dev:frontend": "npm run dev -w @sp/frontend",
     "dev": "concurrently \"npm:dev:bridge\" \"npm:dev:frontend\"",
+    "dev:kinect": "cd apps/kinect-bridge && chmod +x setup-and-run.sh 2>/dev/null; ./setup-and-run.sh",
+    "dev:kinect:run": "cd apps/kinect-bridge && python3 kinect_bridge.py",
     "build": "npm run build -w @sp/frontend"
   },
   "devDependencies": {
