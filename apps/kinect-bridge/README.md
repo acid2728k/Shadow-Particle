@@ -46,7 +46,9 @@ pip3 install freenect
 cd apps/kinect-bridge
 ./install-freenect-from-source.sh
 ```
-This clones libfreenect and builds the Python wrapper. Then run `npm run dev:kinect` again.
+This clones libfreenect and builds the Python wrapper (uses Cython 0.29.x; Cython 3.x is incompatible with libfreenect’s setup.py). Then run `npm run dev:kinect` again.
+
+**If port 9876 is already in use**, stop the other process (e.g. Node mock bridge or a previous Kinect bridge): `kill $(lsof -t -i :9876)` then start the Kinect bridge again.
 
 ### 3. Run
 

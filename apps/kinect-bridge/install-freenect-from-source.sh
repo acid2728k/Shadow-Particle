@@ -19,8 +19,8 @@ if [[ -z "$BREW_PREFIX" ]] || [[ ! -f "$BREW_PREFIX/lib/libfreenect.dylib" ]]; t
 fi
 echo "  Using libfreenect from: $BREW_PREFIX"
 
-# Build deps
-python3 -m pip install --user Cython numpy 2>/dev/null || true
+# Build deps (Cython 0.29.x required — libfreenect setup.py breaks with Cython 3.x)
+python3 -m pip install --user 'Cython>=0.29,<3' numpy 2>/dev/null || true
 export CFLAGS="-I$BREW_PREFIX/include"
 export LDFLAGS="-L$BREW_PREFIX/lib"
 export CPATH="$BREW_PREFIX/include"

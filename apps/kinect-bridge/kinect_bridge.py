@@ -9,7 +9,7 @@ import argparse
 import asyncio
 import struct
 import time
-from threading import Thread, Lock
+from threading import Thread, Lock, Event
 
 try:
     import numpy as np
@@ -80,7 +80,7 @@ def kinect_thread(
         return
 
     interval = 1.0 / fps
-    while not getattr(stop_event, "is_set", lambda: False)():
+    while not stop_event.is_set():
         try:
             out = freenect.sync_get_depth()
             depth = out[0] if isinstance(out, (tuple, list)) else out
@@ -172,7 +172,7 @@ def main() -> None:
 
     latest_holder: dict = {}
     lock = Lock()
-    stop_event = type("Stop", (), {"is_set": lambda: False})()
+    stop_event = Event()
 
     t = Thread(
         target=kinect_thread,
