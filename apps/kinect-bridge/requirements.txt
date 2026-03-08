@@ -1,0 +1,4 @@
+# Kinect bridge for Shadow Particle (macOS / Linux with libfreenect)
+# Install libfreenect first: brew install libfreenect
+numpy>=1.20.0
+websockets>=12.0

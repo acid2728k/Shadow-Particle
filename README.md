@@ -1,19 +1,17 @@
 # Shadow Particle
 
-Interactive "shadow particle projection" inspired by teamLab: a person's silhouette + depth → particles that follow the body shape with trails, depth layering, and a fully customizable atmospheric background. Dark canvas, glowing particles, sense of depth.
+Interactive "shadow particle projection" inspired by teamLab: a person's silhouette + depth becomes particles that follow the body with trails, depth layering, and a customizable atmospheric background. Supports **Kinect 360** (Mac via libfreenect, Windows via SDK), **mock mode**, and **webcam + MediaPipe** fallback.
 
 ## Architecture
 
 ```
-┌──────────────────────┐   WebSocket (binary)     ┌──────────────────────────┐
-│   Bridge (Node.js)   │  ───────────────────▶   │  Frontend (Vite/Three)   │
-│                      │   depth + user mask      │                          │
-│  • Mock generator    │   320×240 @ 30fps        │  • 3D particle renderer  │
-│  • Real Kinect v1 *  │                          │  • Feedback trails       │
-└──────────────────────┘                          │  • Background starfield  │
-                                                  │  • lil-gui controls      │
-                                                  └──────────────────────────┘
-* = Windows-only via Kinect SDK v1.8
+┌─────────────────────────────┐   WebSocket (binary)   ┌──────────────────────────┐
+│  Bridge                      │   depth + mask         │   Frontend (Vite/Three)  │
+│  • Node: mock generator      │   320×240 @ 30fps  ──▶ │  • 3D particle renderer  │
+│  • Python: Kinect (Mac/Linux)│                        │  • Feedback trails       │
+│  • Windows: Kinect SDK v1.8 │                        │  • Background starfield  │
+└─────────────────────────────┘                        │  • lil-gui controls      │
+                                                       └──────────────────────────┘
 ```
 
 **Two-process design**: the bridge reads sensor data and streams binary frames over WebSocket;
@@ -25,7 +23,7 @@ The frontend uses a `MotionSource` interface with two implementations:
 
 | Source | Sensor | Depth | Mask |
 |--------|--------|-------|------|
-| `WebSocketStreamSource` | Kinect v1 via bridge | ✅ real | ✅ real (user index) |
+| `WebSocketStreamSource` | Kinect v1 via bridge | ✅ real | ✅ real (user index on Windows; depth-threshold on Mac) |
 | `WebcamSegmentationSource` | Webcam + MediaPipe | 🔶 pseudo (erosion) | ✅ ML segmentation |
 
 Fallback order: **WebSocket → Webcam → background-only mode**.
@@ -71,19 +69,33 @@ iterative erosion (center of body = closer, edges = further).
 
 ### 3. Real Kinect v1
 
-**Kinect v1 (Xbox 360) only works on Windows with Kinect SDK v1.8.**
+#### Kinect 360 on macOS (libfreenect + Python bridge)
 
-Recommended setup:
+Use the **Python Kinect bridge** in this repo. It uses [libfreenect](https://github.com/OpenKinect/libfreenect) and speaks the same WebSocket protocol on port 9876. The mask is built from a **depth threshold** (no multi-user index on Mac).
+
+1. Install libfreenect and Python deps:
+   ```bash
+   brew install libfreenect
+   cd apps/kinect-bridge
+   pip install -r requirements.txt
+   pip install freenect   # or use the Python wrapper from libfreenect repo
+   ```
+2. Plug in the Kinect, then run the bridge:
+   ```bash
+   python kinect_bridge.py
+   ```
+3. Start the frontend as usual (`npm run dev:frontend`). It will connect to `ws://localhost:9876` and show real depth + mask.
+
+Options: `--port`, `--width`, `--height`, `--near`, `--far`, `--fps`. See `apps/kinect-bridge/README.md`.
+
+#### Kinect 360 on Windows (Kinect SDK v1.8)
+
+For **real user segmentation** (player index) you need the official SDK on Windows:
 
 1. **Windows machine** with Kinect v1 connected
 2. Install [Kinect SDK v1.8](https://www.microsoft.com/en-us/download/details.aspx?id=40278)
-3. Run a bridge app (C# or Python) that reads depth + user index
-   and sends them over the same binary WebSocket protocol
-4. Point the frontend at the Windows machine's IP:
-   ```
-   ws://WINDOWS_IP:9876
-   ```
-   (update the URL in `WebSocketStreamSource` or add a query param)
+3. Run a bridge (C# or Node) that reads depth + user index and sends the same binary WebSocket protocol
+4. Point the frontend at the Windows machine's IP: `ws://WINDOWS_IP:9876`
 
 The bridge protocol is documented in `shared/protocol/src/types.ts`.
 
@@ -198,11 +210,15 @@ Shadow Particle/
 │       ├── encode.ts         # Frame → ArrayBuffer
 │       ├── decode.ts         # ArrayBuffer → Frame
 │       └── index.ts
-├── apps/bridge/              # WebSocket server (mock or Kinect)
+├── apps/bridge/              # Node WebSocket server (mock)
 │   └── src/
 │       ├── index.ts          # WS server on :9876, frame loop
 │       ├── mock/             # MockKinectSource — synthetic humanoid
-│       └── kinect/           # KinectAdapter placeholder (Windows)
+│       └── kinect/           # KinectAdapter placeholder (Windows SDK)
+├── apps/kinect-bridge/       # Python WebSocket server (real Kinect on Mac/Linux)
+│   ├── kinect_bridge.py      # libfreenect → depth + mask → WS :9876
+│   ├── requirements.txt
+│   └── README.md
 └── apps/frontend/            # Vite + Three.js + lil-gui
     └── src/
         ├── main.ts           # Entry point, animation loop
