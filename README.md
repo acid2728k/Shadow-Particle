@@ -26,9 +26,9 @@ The frontend connects exclusively to the Kinect bridge (`ws://localhost:9876`). 
 
 ## Quick Start
 
-**Important:** run all commands from the project root. If the project is in `Desktop/Cursor App - Rep/Shadow Particle`, run first:
+**Important:** run all commands from the project root. If the project is in `Desktop/Shadow Particle`, run first:
 ```bash
-cd ~/Desktop/Cursor\ App\ -\ Rep/Shadow\ Particle
+cd ~/Desktop/App\ Rep/Shadow\ Particle
 ```
 Or drag the project folder into the Terminal window to paste the full path.
 
@@ -43,7 +43,7 @@ npm run dev:bridge
 npm run dev:frontend
 ```
 
-Open **http://localhost:5173** — you should see a particle silhouette and starfield background.
+Open **http://localhost:XXXX** — you should see a particle silhouette and starfield background.
 
 ### Running with Kinect 360 (Mac)
 
