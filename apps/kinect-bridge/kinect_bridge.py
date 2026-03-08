@@ -190,7 +190,10 @@ def main() -> None:
 
     clients = set()
 
-    async def handler_bind(ws, path):
+    async def handler_bind(*args, **kwargs):
+        # websockets 12.x passes (ws, path); 13+ may pass only (ws) or (connection=ws)
+        ws = args[0] if args else kwargs.get("connection", kwargs.get("websocket"))
+        path = args[1] if len(args) > 1 else kwargs.get("path")
         await handler(ws, path, clients)
 
     async def main_async():

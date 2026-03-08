@@ -48,7 +48,9 @@ cd apps/kinect-bridge
 ```
 This clones libfreenect and builds the Python wrapper (uses Cython 0.29.x; Cython 3.x is incompatible with libfreenect’s setup.py). Then run `npm run dev:kinect` again.
 
-**If port 9876 is already in use**, stop the other process (e.g. Node mock bridge or a previous Kinect bridge): `kill $(lsof -t -i :9876)` then start the Kinect bridge again.
+**If port 9876 is already in use**, stop the other process: `kill $(lsof -t -i :9876)` then start the Kinect bridge again.
+
+**On Apple Silicon**, the install script builds the Python extension for arm64 only so it links correctly with Homebrew’s libfreenect. If the app debug view (mask/depth) stays black after connecting, rebuild: `rm -rf .libfreenect-src && ./install-freenect-from-source.sh`, then restart the bridge.
 
 ### 3. Run
 

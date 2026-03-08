@@ -26,6 +26,12 @@ export LDFLAGS="-L$BREW_PREFIX/lib"
 export CPATH="$BREW_PREFIX/include"
 export LIBRARY_PATH="$BREW_PREFIX/lib"
 
+# On Apple Silicon, build for arm64 only so the .so links to Homebrew's arm64 libs (avoid "required architecture x86_64" and black frames)
+if [[ $(uname -m) == "arm64" ]]; then
+  export ARCHFLAGS="-arch arm64"
+  echo "  Building for arm64 (Apple Silicon)..."
+fi
+
 SRC_DIR="$SCRIPT_DIR/.libfreenect-src"
 if [[ ! -d "$SRC_DIR/wrappers/python" ]]; then
   echo "  Cloning libfreenect..."
@@ -33,6 +39,8 @@ if [[ ! -d "$SRC_DIR/wrappers/python" ]]; then
   git clone --depth 1 https://github.com/OpenKinect/libfreenect.git "$SRC_DIR"
 fi
 cd "$SRC_DIR/wrappers/python"
+# Clean previous build so arm64 build is used
+rm -rf build
 echo "  Building and installing (may take a minute)..."
 python3 setup.py build_ext --include-dirs="$BREW_PREFIX/include" --library-dirs="$BREW_PREFIX/lib"
 python3 setup.py install --user
