@@ -143,6 +143,20 @@ The bridge protocol is documented in `shared/protocol/src/types.ts`.
 Toggle **Debug → Show mask / depth** in the GUI panel to see the raw mask
 and depth map overlaid in the bottom-left corner (mask on the left, depth on the right).
 
+### Troubleshooting when using Kinect
+
+If the overlay stays black even though the app shows "source: WebSocket (Bridge)":
+
+1. **Browser console** (F12 → Console): look for:
+   - `[WSSource] frame received DEPTH 320 x 240` and `... MASK 320 x 240` — frames are arriving and decoding; if you see these, the issue may be all-zero depth (sensor not seeing the scene yet, or no one in range).
+   - `[WSSource] decode failed` — protocol mismatch (wrong frame size or format); the error message will show expected vs actual byte lengths.
+
+2. **Bridge terminal**: when a client connects you should see:
+   - `[bridge] sending frames: DEPTH 153600 bytes, MASK 76800 bytes, 320x240`
+   - A few lines like `[bridge] depth: min=..., max=..., nonzero=...; mask sum=...` — if `nonzero=0` and `mask sum=0`, the Kinect is returning no valid depth (wait a few seconds for the sensor to warm up, or step into the camera’s view).
+
+3. **Port in use**: if something else is on port 9876, stop it (e.g. `kill $(lsof -t -i :9876)`) and restart the bridge.
+
 ## GUI Controls
 
 ### Particles (foreground)

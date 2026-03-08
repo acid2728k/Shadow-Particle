@@ -88,6 +88,14 @@ def kinect_thread(
                 time.sleep(interval)
                 continue
             depth = np.asarray(depth, dtype=np.float32, copy=False)
+            # libfreenect can return (480,640) or (640,480); ensure (H,W) for resize
+            if depth.ndim != 2:
+                time.sleep(interval)
+                continue
+            if depth.shape[0] < depth.shape[1] and depth.shape[1] == 640:
+                pass  # (480, 640) ok
+            elif depth.shape[1] == 480 and depth.shape[0] == 640:
+                depth = depth.T  # (640,480) -> (480,640)
             # libfreenect depth is often 11-bit (0–2047); scale to approximate mm
             dmax = float(depth.max())
             if dmax > 0 and dmax < 3000:
@@ -95,6 +103,9 @@ def kinect_thread(
             depth = depth.astype(np.uint16)
 
             depth_flat = resize_depth(depth, out_w, out_h)
+            if depth_flat.size != out_w * out_h:
+                time.sleep(interval)
+                continue
             mask = depth_to_mask(depth_flat, near_mm, far_mm)
             ts = time.time()
             with lock:
@@ -107,6 +118,8 @@ def kinect_thread(
         except Exception as e:
             with lock:
                 latest_holder["error"] = str(e)
+            import traceback
+            traceback.print_exc()
         time.sleep(interval)
 
 
@@ -120,6 +133,8 @@ async def broadcast_loop(
 ) -> None:
     """Every 1/fps seconds, take latest frame and send to all clients."""
     interval = 1.0 / fps
+    sent_once = False
+    log_counter = 0
     while True:
         await asyncio.sleep(interval)
         with lock:
@@ -132,6 +147,15 @@ async def broadcast_loop(
             ts = latest_holder.get("ts", 0.0)
         if not depth_b or not mask_b or not clients:
             continue
+        # Optional: log payload sizes once
+        if not sent_once:
+            print(f"  [bridge] sending frames: DEPTH {len(depth_b)} bytes, MASK {len(mask_b)} bytes, {w}x{h}")
+            sent_once = True
+        log_counter += 1
+        if log_counter <= 3 and depth_b:
+            arr = np.frombuffer(depth_b, dtype=np.uint16)
+            mask_arr = np.frombuffer(mask_b, dtype=np.uint8)
+            print(f"  [bridge] depth: min={arr.min()}, max={arr.max()}, nonzero={(arr > 0).sum()}; mask sum={mask_arr.sum()}")
         depth_frame = encode_frame(FRAME_DEPTH, w, h, ts, depth_b)
         mask_frame = encode_frame(FRAME_MASK, w, h, ts, mask_b)
         dead = set()
@@ -139,8 +163,9 @@ async def broadcast_loop(
             try:
                 await ws.send(depth_frame)
                 await ws.send(mask_frame)
-            except Exception:
+            except Exception as ex:
                 dead.add(ws)
+                print("  [bridge] send error:", ex)
         for ws in dead:
             clients.discard(ws)
 

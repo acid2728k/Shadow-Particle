@@ -17,6 +17,9 @@ export function decodeFrame(data: ArrayBuffer): Frame {
   switch (type) {
     case FrameType.DEPTH: {
       const payloadSize = width * height * 2;
+      if (HEADER_SIZE + payloadSize > data.byteLength) {
+        throw new Error(`DEPTH frame too short: need ${HEADER_SIZE + payloadSize}, got ${data.byteLength}`);
+      }
       const depthBuffer = new ArrayBuffer(payloadSize);
       new Uint8Array(depthBuffer).set(new Uint8Array(data, HEADER_SIZE, payloadSize));
       return {
@@ -30,6 +33,9 @@ export function decodeFrame(data: ArrayBuffer): Frame {
 
     case FrameType.USER_MASK: {
       const payloadSize = width * height;
+      if (HEADER_SIZE + payloadSize > data.byteLength) {
+        throw new Error(`USER_MASK frame too short: need ${HEADER_SIZE + payloadSize}, got ${data.byteLength}`);
+      }
       const mask = new Uint8Array(payloadSize);
       mask.set(new Uint8Array(data, HEADER_SIZE, payloadSize));
       return {

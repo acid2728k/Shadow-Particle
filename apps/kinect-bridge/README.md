@@ -65,6 +65,8 @@ python3 kinect_bridge.py
 
 Defaults: `ws://localhost:9876`, 320×240 @ 30 fps.
 
+When a browser client connects, the bridge prints once: frame sizes (DEPTH/MASK bytes, resolution) and a few lines of depth/mask stats (`min`, `max`, `nonzero`, `mask sum`) so you can confirm the sensor is sending data. If `nonzero=0` and `mask sum=0`, the Kinect is returning no valid depth yet (sensor warm-up or no one in range).
+
 ## Options
 
 - `--port 9876` — WebSocket port (default 9876).

@@ -36,6 +36,7 @@ export class WebSocketStreamSource implements MotionSource {
           resolve();
         });
 
+        let frameCount = 0;
         this.ws.addEventListener('message', (ev: MessageEvent) => {
           if (!(ev.data instanceof ArrayBuffer)) return;
           try {
@@ -55,8 +56,11 @@ export class WebSocketStreamSource implements MotionSource {
                 timestamp: frame.timestamp,
               };
             }
-          } catch {
-            /* skip malformed frames */
+            if (++frameCount <= 2) {
+              console.log('[WSSource] frame received', frame.type === FrameType.DEPTH ? 'DEPTH' : 'MASK', frame.width, 'x', frame.height);
+            }
+          } catch (e) {
+            console.warn('[WSSource] decode failed', e);
           }
         });
 
