@@ -41,7 +41,12 @@ pip3 install -r requirements.txt
 pip3 install freenect
 ```
 
-(If `freenect` is not on PyPI, use the wrapper from the libfreenect repo under `wrappers/python`.)
+**If `pip install freenect` fails** (broken metadata on PyPI), build from source:
+```bash
+cd apps/kinect-bridge
+./install-freenect-from-source.sh
+```
+This clones libfreenect and builds the Python wrapper. Then run `npm run dev:kinect` again.
 
 ### 3. Run
 

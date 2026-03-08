@@ -32,14 +32,19 @@ if ! python3 -c "import websockets" 2>/dev/null; then
 fi
 echo "  ✓ numpy, websockets"
 
-# 3. freenect Python bindings
+# 3. freenect Python bindings (PyPI package is broken — use source build)
 if ! python3 -c "import freenect" 2>/dev/null; then
-  echo "  Installing freenect (Python bindings for libfreenect)..."
-  pip3 install freenect 2>/dev/null || true
+  echo "  freenect not found. Building from libfreenect source..."
+  if [[ -f "$(dirname "$0")/install-freenect-from-source.sh" ]]; then
+    chmod +x "$(dirname "$0")/install-freenect-from-source.sh" 2>/dev/null
+    "$(dirname "$0")/install-freenect-from-source.sh" || true
+  fi
 fi
 if ! python3 -c "import freenect" 2>/dev/null; then
-  echo "  freenect not found. Try: pip3 install freenect"
-  echo "  Or build from libfreenect source: wrappers/python"
+  echo ""
+  echo "  freenect still not found. Run manually:"
+  echo "    cd apps/kinect-bridge && ./install-freenect-from-source.sh"
+  echo ""
   exit 1
 fi
 echo "  ✓ freenect"

@@ -30,19 +30,34 @@ Fallback order: **WebSocket → Webcam → background-only mode**.
 
 ## Quick Start
 
+**Important:** run all commands from the project root. If the project is in `Desktop/Cursor App - Rep/Shadow Particle`, run first:
 ```bash
-# Install everything (from project root)
-cd "Shadow Particle"
+cd ~/Desktop/Cursor\ App\ -\ Rep/Shadow\ Particle
+```
+Or drag the project folder into the Terminal window to paste the full path.
+
+```bash
+# Install dependencies (once)
 npm install
 
-# Terminal 1 — start bridge (mock Kinect)
+# Terminal 1 — mock bridge (no Kinect)
 npm run dev:bridge
 
-# Terminal 2 — start frontend
+# Terminal 2 — frontend
 npm run dev:frontend
 ```
 
-Open **http://localhost:5173** — you should see a humanoid silhouette made of glowing particles with trails and a starfield background.
+Open **http://localhost:5173** — you should see a particle silhouette and starfield background.
+
+### Running with Kinect 360 (Mac)
+
+1. Plug in the Kinect.
+2. From the project root, start the bridge with one command:
+   ```bash
+   npm run dev:kinect
+   ```
+   Or double-click **START-KINECT.command** in the project root (install Homebrew from https://brew.sh first if needed).
+3. In another terminal from the same folder: `npm run dev:frontend`. Refresh the app in the browser.
 
 ### Run both together
 
@@ -81,7 +96,8 @@ npm run dev:kinect
 
 This installs libfreenect (if needed), Python deps, and starts the bridge. Then run the frontend in another terminal (`npm run dev:frontend`) or refresh the app. **Do not run the Node mock bridge** at the same time — only one process on port 9876.
 
-Manual: see `apps/kinect-bridge/README.md`. Options: `--port`, `--width`, `--height`, `--near`, `--far`, `--fps`.
+If the setup script reports *freenect not found* (PyPI package is broken), run `./apps/kinect-bridge/install-freenect-from-source.sh` once, then `npm run dev:kinect` again.  
+Manual install and options: see `apps/kinect-bridge/README.md` (`--port`, `--width`, `--height`, `--near`, `--far`, `--fps`).
 
 #### Kinect 360 on Windows (Kinect SDK v1.8)
 
@@ -210,8 +226,11 @@ Shadow Particle/
 │       ├── index.ts          # WS server on :9876, frame loop
 │       ├── mock/             # MockKinectSource — synthetic humanoid
 │       └── kinect/           # KinectAdapter placeholder (Windows SDK)
+├── START-KINECT.command      # Double-click to start Kinect bridge (Mac)
 ├── apps/kinect-bridge/       # Python WebSocket server (real Kinect on Mac/Linux)
 │   ├── kinect_bridge.py      # libfreenect → depth + mask → WS :9876
+│   ├── setup-and-run.sh      # One-shot: install deps + run bridge
+│   ├── install-freenect-from-source.sh  # Build freenect from libfreenect (PyPI package broken)
 │   ├── requirements.txt
 │   └── README.md
 └── apps/frontend/            # Vite + Three.js + lil-gui
