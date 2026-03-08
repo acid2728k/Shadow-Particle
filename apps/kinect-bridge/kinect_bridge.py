@@ -35,8 +35,8 @@ except ImportError:
 HEADER_SIZE = 13
 FRAME_DEPTH = 0x01
 FRAME_MASK = 0x02
-DEFAULT_NEAR_MM = 800
-DEFAULT_FAR_MM = 4000
+DEFAULT_NEAR_MM = 600
+DEFAULT_FAR_MM = 2500   # tighter range → only capture person, not background
 
 
 def encode_frame(frame_type: int, width: int, height: int, timestamp: float, payload: bytes) -> bytes:
@@ -79,33 +79,57 @@ def kinect_thread(
             latest_holder["error"] = "freenect not available (install libfreenect + Python bindings)"
         return
 
+    # Try DEPTH_MM format (returns real mm values); fall back to 11-bit disparity
+    use_depth_mm = hasattr(freenect, 'DEPTH_MM')
+    if use_depth_mm:
+        print("  [bridge] depth format: DEPTH_MM (real millimetres)")
+    else:
+        print("  [bridge] depth format: 11-bit disparity (will convert to pseudo-mm)")
+
     interval = 1.0 / fps
     while not stop_event.is_set():
         try:
-            out = freenect.sync_get_depth()
+            if use_depth_mm:
+                out = freenect.sync_get_depth(0, freenect.DEPTH_MM)
+            else:
+                out = freenect.sync_get_depth()
+
             depth = out[0] if isinstance(out, (tuple, list)) else out
             if depth is None:
                 time.sleep(interval)
                 continue
-            depth = np.asarray(depth, dtype=np.float32, copy=False)
-            # libfreenect can return (480,640) or (640,480); ensure (H,W) for resize
+
+            depth = np.asarray(depth, dtype=np.float32)
+
             if depth.ndim != 2:
                 time.sleep(interval)
                 continue
-            if depth.shape[0] < depth.shape[1] and depth.shape[1] == 640:
-                pass  # (480, 640) ok
-            elif depth.shape[1] == 480 and depth.shape[0] == 640:
-                depth = depth.T  # (640,480) -> (480,640)
-            # libfreenect depth is often 11-bit (0–2047); scale to approximate mm
-            dmax = float(depth.max())
-            if dmax > 0 and dmax < 3000:
-                depth = np.clip(depth * 2.0, 0, 65535)
-            depth = depth.astype(np.uint16)
+
+            # Ensure shape is (H=480, W=640)
+            if depth.shape[0] > depth.shape[1]:
+                depth = depth.T
+
+            if not use_depth_mm:
+                # Raw 11-bit disparity: 0=invalid/very-far, 2047=very-close (~0.4m)
+                # This is the INVERSE of distance — convert to real mm:
+                #   close object (raw~1500, ~1m)  → keep
+                #   far background (raw~300, ~4m+) → exclude
+                # Conversion: pseudo_mm = (2047 - raw) * 5
+                #   raw 2047 (0.4m) → pseudo 0mm  (too close, filtered by near_mm)
+                #   raw 1500 (1m)   → pseudo 2735mm (in range → captured)
+                #   raw 600  (3m+)  → pseudo 7235mm (> far_mm → excluded)
+                depth = np.where(depth > 50,
+                                 np.clip((2047.0 - depth) * 5.0, 1.0, 65535.0),
+                                 0.0)
+
+            # Mirror horizontally so left/right matches the user's perspective
+            depth = np.fliplr(depth).astype(np.uint16)
 
             depth_flat = resize_depth(depth, out_w, out_h)
             if depth_flat.size != out_w * out_h:
                 time.sleep(interval)
                 continue
+
             mask = depth_to_mask(depth_flat, near_mm, far_mm)
             ts = time.time()
             with lock:

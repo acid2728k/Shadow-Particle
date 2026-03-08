@@ -44,29 +44,39 @@ export interface AppParams {
 
 export const defaultParams: AppParams = {
   maxParticles: 80000,
-  emitRate: 350,
-  baseSize: 2.2,
-  particleIntensity: 0.12,
-  decayRate: 0.65,
-  spread: 4.0,
-  fgSparkleType: 'dots',
-  fgColorNear: '#ffdd88',
-  fgColorFar: '#4488ff',
-  fgAnimSpeed: 1.0,
-  nearClamp: 800,
-  farClamp: 4000,
+
+  // ── Body particles ──
+  // Dense fill + short life → body always bright; particles float up (teamLab look)
+  emitRate: 900,
+  baseSize: 2.4,
+  particleIntensity: 0.07,   // lower → colors visible, not blown to white
+  decayRate: 2.0,
+  spread: 3.0,
+  fgSparkleType: 'dust',     // soft gaussian glow
+  fgColorNear: '#ffdd55',    // vivid warm gold — top of body / near camera
+  fgColorFar: '#7711ff',     // vivid purple — bottom of body / far camera
+  fgAnimSpeed: 1.6,          // controls scatter strength + upward drift speed
+
+  // ── Depth mapping ── (matches bridge defaults: near=600mm, far=2500mm)
+  nearClamp: 600,
+  farClamp: 2500,
   depthSpread: 3.0,
-  sizeByDepth: 0.7,
-  alphaByDepth: 0.6,
-  feedbackStrength: 0.88,
-  backgroundDensity: 4000,
-  backgroundOpacity: 0.5,
+  sizeByDepth: 0.55,
+  alphaByDepth: 0.45,
+
+  // ── Trails — high feedback = long glowing motion trails ──
+  feedbackStrength: 0.94,
+
+  // ── Background sparkles ──
+  backgroundDensity: 5000,
+  backgroundOpacity: 0.32,
   bgMode: 'animated',
   bgSparkleType: 'dots',
-  bgAnimSpeed: 1.0,
-  bgSparkleSize: 2.5,
-  bgColor1: '#4488cc',
-  bgColor2: '#9944cc',
+  bgAnimSpeed: 0.25,
+  bgSparkleSize: 1.4,
+  bgColor1: '#0d2a99',
+  bgColor2: '#4a0f88',
+
   maskThreshold: 0,
   showDebug: false,
 };
@@ -87,8 +97,8 @@ export function createGUI(params: AppParams): GUI {
   pf.add(params, 'spread', 1, 8, 0.1).name('Spread');
 
   const df = gui.addFolder('Depth');
-  df.add(params, 'nearClamp', 400, 2500, 50).name('Near (mm)');
-  df.add(params, 'farClamp', 1500, 6000, 50).name('Far (mm)');
+  df.add(params, 'nearClamp', 100, 3000, 50).name('Near (mm)');
+  df.add(params, 'farClamp', 500, 10000, 100).name('Far (mm)');
   df.add(params, 'depthSpread', 0.5, 6, 0.1).name('Z spread');
   df.add(params, 'sizeByDepth', 0, 1, 0.05).name('Size × depth');
   df.add(params, 'alphaByDepth', 0, 1, 0.05).name('Alpha × depth');

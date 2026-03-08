@@ -2,7 +2,6 @@ import * as THREE from 'three';
 import type { MaskData } from '@sp/protocol';
 import type { MotionSource } from '../motion/MotionSource.js';
 import { WebSocketStreamSource } from '../motion/WebSocketStreamSource.js';
-import { WebcamSegmentationSource } from '../motion/WebcamSegmentationSource.js';
 import { ParticleSystem } from './ParticleSystem.js';
 import { BackgroundStarfield } from './BackgroundStarfield.js';
 import { TrailRenderer } from './TrailRenderer.js';
@@ -12,7 +11,10 @@ import type { AppParams } from '../gui/controls.js';
 export class SceneManager {
   private renderer: THREE.WebGLRenderer;
   private camera: THREE.PerspectiveCamera;
-  private scene: THREE.Scene;
+  // Particles-only scene → enters feedback loop
+  private particleScene: THREE.Scene;
+  // Background scene → renders directly to screen (no feedback accumulation)
+  private bgScene: THREE.Scene;
 
   private particles: ParticleSystem;
   private stars: BackgroundStarfield;
@@ -43,15 +45,18 @@ export class SceneManager {
     );
     this.camera.position.z = 3.5;
 
-    // Scene
-    this.scene = new THREE.Scene();
+    // Particles scene (only particles — rendered inside feedback loop)
+    this.particleScene = new THREE.Scene();
+
+    // Background scene (rendered directly to screen, never accumulates)
+    this.bgScene = new THREE.Scene();
 
     // Subsystems
     this.particles = new ParticleSystem(params);
-    this.scene.add(this.particles.object3D);
+    this.particleScene.add(this.particles.object3D);
 
     this.stars = new BackgroundStarfield(params.backgroundDensity);
-    this.scene.add(this.stars.object3D);
+    this.bgScene.add(this.stars.object3D);
 
     this.trails = new TrailRenderer(window.innerWidth, window.innerHeight);
     this.debug = new DebugOverlay();
@@ -62,31 +67,32 @@ export class SceneManager {
   /* ── Source negotiation ── */
 
   async initMotionSource(): Promise<void> {
-    this.setStatus('connecting to bridge...');
+    this.setStatus('connecting to Kinect bridge...');
 
-    // Try WebSocket first
     try {
       const ws = new WebSocketStreamSource();
       await ws.init();
       this.source = ws;
-      this.setStatus(`source: ${ws.name}`);
+      this.setStatus('Kinect connected');
       return;
     } catch {
-      console.log('[app] bridge unreachable — trying webcam fallback');
+      console.log('[app] Kinect bridge unreachable — waiting for reconnect');
     }
 
-    // Webcam fallback
-    try {
-      const cam = new WebcamSegmentationSource();
-      await cam.init();
-      this.source = cam;
-      this.setStatus(`source: ${cam.name}`);
-      return;
-    } catch (e) {
-      console.warn('[app] webcam fallback failed', e);
-    }
+    this.setStatus('Kinect bridge offline — restart the bridge');
 
-    this.setStatus('no source — showing background only');
+    // Auto-reconnect: retry every 3 seconds until bridge is available
+    const retry = setInterval(async () => {
+      try {
+        const ws = new WebSocketStreamSource();
+        await ws.init();
+        this.source = ws;
+        this.setStatus('Kinect connected');
+        clearInterval(retry);
+      } catch {
+        // still waiting
+      }
+    }, 3000);
   }
 
   /* ── Frame loop ── */
@@ -101,7 +107,16 @@ export class SceneManager {
     this.particles.update(dt, mask, depth, this.params);
     this.stars.update(dt, this.params, parallax);
     this.trails.setDecay(this.params.feedbackStrength);
-    this.trails.render(this.renderer, this.scene, this.camera);
+
+    // 1. Clear screen and draw background (no feedback — stays clean)
+    this.renderer.setRenderTarget(null);
+    this.renderer.clear();
+    this.renderer.autoClear = false;
+    this.renderer.render(this.bgScene, this.camera);
+    this.renderer.autoClear = true;
+
+    // 2. Composite particle trails on top (trail renderer does not clear screen)
+    this.trails.render(this.renderer, this.particleScene, this.camera);
 
     this.debug.setVisible(this.params.showDebug);
     this.debug.update(mask, depth);

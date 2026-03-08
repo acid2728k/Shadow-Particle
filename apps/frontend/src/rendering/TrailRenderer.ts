@@ -78,12 +78,17 @@ export class TrailRenderer {
           // Filmic tone-map: compress highlights, prevent whiteout
           vec3 x = max(vec3(0.0), c.rgb - 0.004);
           c.rgb = (x * (6.2 * x + 0.5)) / (x * (6.2 * x + 1.7) + 0.06);
+          // Alpha = max channel so dark (empty) areas are transparent
+          // and the background scene shows through
+          c.a = max(c.r, max(c.g, c.b));
           gl_FragColor = c;
         }
       `,
       uniforms: {
         tFrame: { value: null },
       },
+      transparent: true,
+      blending: THREE.AdditiveBlending,
       depthTest: false,
       depthWrite: false,
     });
@@ -100,16 +105,15 @@ export class TrailRenderer {
     this.feedbackMat.uniforms.tPrev.value = this.rtB.texture;
     renderer.render(this.feedbackScene, this.ortho);
 
-    // 2. Render scene (particles + background) additively on top
+    // 2. Render particles additively on top of feedback
     renderer.autoClear = false;
     renderer.render(scene, camera);
-    renderer.autoClear = prev;
 
-    // 3. Display rtA to screen
+    // 3. Composite rtA onto screen (background already drawn by caller — don't clear)
     renderer.setRenderTarget(null);
-    renderer.clear();
     this.displayMat.uniforms.tFrame.value = this.rtA.texture;
     renderer.render(this.displayScene, this.ortho);
+    renderer.autoClear = prev;
 
     // 4. Swap
     [this.rtA, this.rtB] = [this.rtB, this.rtA];

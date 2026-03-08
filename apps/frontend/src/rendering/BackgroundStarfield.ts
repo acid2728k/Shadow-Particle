@@ -15,6 +15,7 @@ const vertBg = /* glsl */ `
   uniform float uTime;
   uniform float uSize;
   uniform float uAnimSpeed;
+  uniform float uPixelRatio;
 
   void main() {
     vAlpha    = aAlpha;
@@ -25,7 +26,7 @@ const vertBg = /* glsl */ `
     vTwinkle = 0.55 + 0.45 * sin(uTime * freq * uAnimSpeed + aPhase * 6.2831);
 
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
-    gl_PointSize = max(uSize * (180.0 / -mv.z), 0.5);
+    gl_PointSize = max(uSize * (20.0 / -mv.z) * uPixelRatio, 0.5);
     gl_Position  = projectionMatrix * mv;
   }
 `;
@@ -138,6 +139,7 @@ export class BackgroundStarfield {
         uColor1: { value: new THREE.Color('#4488cc') },
         uColor2: { value: new THREE.Color('#9944cc') },
         uOpacity: { value: 0.5 },
+        uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) },
       },
     });
 

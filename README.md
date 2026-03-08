@@ -1,32 +1,28 @@
 # Shadow Particle
 
-Interactive "shadow particle projection" inspired by teamLab: a person's silhouette + depth becomes particles that follow the body with trails, depth layering, and a customizable atmospheric background. Supports **Kinect 360** (Mac via libfreenect, Windows via SDK), **mock mode**, and **webcam + MediaPipe** fallback.
+Immersive real-time particle installation inspired by teamLab: a person's silhouette captured by a **Kinect 360** becomes thousands of glowing particles that fill the body, float upward, and leave long luminous trails when moving — all against a deep dark starfield background. Designed for **live installation and interactive exhibitions**.
 
 ## Architecture
 
 ```
-┌─────────────────────────────┐   WebSocket (binary)   ┌──────────────────────────┐
-│  Bridge                      │   depth + mask         │   Frontend (Vite/Three)  │
-│  • Node: mock generator      │   320×240 @ 30fps  ──▶ │  • 3D particle renderer  │
-│  • Python: Kinect (Mac/Linux)│                        │  • Feedback trails       │
-│  • Windows: Kinect SDK v1.8 │                        │  • Background starfield  │
-└─────────────────────────────┘                        │  • lil-gui controls      │
-                                                       └──────────────────────────┘
+┌─────────────────────────────┐   WebSocket (binary)   ┌──────────────────────────────┐
+│  Bridge                      │   depth + mask         │   Frontend (Vite / Three.js) │
+│  • Python: Kinect v1 (Mac)   │   320×240 @ 30 fps ──▶ │  • 80 K particle pool        │
+│  • Node: mock generator      │                        │  • Ping-pong feedback trails │
+│  • Windows: Kinect SDK v1.8  │                        │  • Background starfield      │
+└─────────────────────────────┘                        │  • lil-gui live controls     │
+                                                       └──────────────────────────────┘
 ```
 
-**Two-process design**: the bridge reads sensor data and streams binary frames over WebSocket;
-the frontend renders everything in WebGL2 using Three.js.
+**Two-process design**: the Python bridge reads the Kinect sensor and streams binary depth + mask frames over WebSocket. The frontend renders everything in WebGL2 using Three.js.
 
-### MotionSource abstraction
+### Motion source
 
-The frontend uses a `MotionSource` interface with two implementations:
+The frontend connects exclusively to the Kinect bridge (`ws://localhost:9876`). If the bridge is offline, the app shows the background and retries the connection every 3 seconds — no webcam fallback, no camera permission prompt.
 
-| Source | Sensor | Depth | Mask |
-|--------|--------|-------|------|
-| `WebSocketStreamSource` | Kinect v1 via bridge | ✅ real | ✅ real (user index on Windows; depth-threshold on Mac) |
-| `WebcamSegmentationSource` | Webcam + MediaPipe | 🔶 pseudo (erosion) | ✅ ML segmentation |
-
-Fallback order: **WebSocket → Webcam → background-only mode**.
+| Source | Description |
+|--------|-------------|
+| `WebSocketStreamSource` | Kinect v1 via Python bridge — real depth + silhouette mask |
 
 ## Quick Start
 
@@ -65,9 +61,9 @@ Open **http://localhost:5173** — you should see a particle silhouette and star
 npm run dev
 ```
 
-### Webcam mode (no bridge)
+### No bridge available
 
-Stop the bridge (or don't start it). The frontend will auto-fallback to your webcam + MediaPipe segmentation after a 3-second timeout. The browser will ask for camera permission.
+If the Kinect bridge is not running, the app displays the background starfield and automatically retries the WebSocket connection every 3 seconds. As soon as the bridge starts, the frontend reconnects without needing a page reload.
 
 ## Modes
 
@@ -76,17 +72,11 @@ Stop the bridge (or don't start it). The frontend will auto-fallback to your web
 Bridge generates a swaying humanoid silhouette with synthetic depth (head, torso, arms, legs).
 No hardware required. Useful for tuning visuals.
 
-### 2. Webcam fallback
-
-If the bridge is unreachable, the frontend automatically opens the webcam
-and uses MediaPipe Selfie Segmentation for masking + pseudo-depth via
-iterative erosion (center of body = closer, edges = further).
-
-### 3. Real Kinect v1
+### 2. Real Kinect v1
 
 #### Kinect 360 on macOS (libfreenect + Python bridge)
 
-Use the **Python Kinect bridge** in this repo. It uses [libfreenect](https://github.com/OpenKinect/libfreenect) and speaks the same WebSocket protocol on port 9876. The mask is built from a **depth threshold** (no multi-user index on Mac).
+Use the **Python Kinect bridge** in this repo. It uses [libfreenect](https://github.com/OpenKinect/libfreenect) and streams the same binary WebSocket protocol on port 9876. The mask is built from a depth threshold (no multi-user index on Mac via libfreenect).
 
 **One command** (from project root, in a terminal where Homebrew is available):
 
@@ -96,7 +86,10 @@ npm run dev:kinect
 
 This installs libfreenect (if needed), Python deps, and starts the bridge. Then run the frontend in another terminal (`npm run dev:frontend`) or refresh the app. **Do not run the Node mock bridge** at the same time — only one process on port 9876.
 
-If the setup script reports *freenect not found* (PyPI package is broken), run `./apps/kinect-bridge/install-freenect-from-source.sh` once, then `npm run dev:kinect` again.  
+If the setup script reports *freenect not found* (PyPI package is broken), run `./apps/kinect-bridge/install-freenect-from-source.sh` once, then `npm run dev:kinect` again.
+
+**Depth format**: the bridge first tries `DEPTH_MM` (direct millimetres) and falls back to 11-bit disparity with automatic inversion + scaling so near/far thresholds always mean real metres.  
+**Mirror**: the depth image is flipped horizontally so left/right matches the person's natural perspective.  
 Manual install and options: see `apps/kinect-bridge/README.md` (`--port`, `--width`, `--height`, `--near`, `--far`, `--fps`).
 
 #### Kinect 360 on Windows (Kinect SDK v1.8)
@@ -116,11 +109,21 @@ The bridge protocol is documented in `shared/protocol/src/types.ts`.
 
 - Particles emitted from the silhouette mask with depth-based Z positioning
 - **4 sparkle shapes**: dots, 4-point stars, dust (gaussian glow), bokeh (rings)
-- **Dual color pickers**: near color (warm) and far color (cool), interpolated by depth
-- **Per-particle intensity** control prevents additive-blending whiteout
-- **Animation speed** controls turbulence, velocity, and scatter
-- ~15% of particles are "aura" type: larger, dimmer, longer-lived, slower — creating a natural glow halo
+- **2D color gradient**: color blends across both **depth** (near=warm, far=cool) and **height** (head=warm, feet=cool) simultaneously — creating rich, vivid color variation across the entire body silhouette
+- **Upward drift physics**: particles spawn at body positions and float upward with randomised scatter, mimicking the teamLab "stardust escaping the body" aesthetic
+- ~18% of particles are "aura" type: larger, slower, longer-lived — producing a soft outer glow halo
 - Depth-based effects: size, alpha, and color all modulated by Z distance
+- **Render architecture**: particles rendered into a dedicated ping-pong feedback buffer (separate from background) — prevents background accumulation into the trail system
+
+### Rendering pipeline
+
+```
+Background scene ──► clear screen + render directly (no feedback accumulation)
+Particle scene   ──► feedback RT: (prev × decay) + new particles
+                 ──► filmic tone-map + additive composite onto background
+```
+
+This separation ensures the background starfield is always clean and dark while the particle trails can be long and bright without whitewashing the scene.
 
 ### Trails
 
@@ -229,57 +232,56 @@ See `shared/protocol/src/types.ts` for full type definitions.
 ```
 Shadow Particle/
 ├── package.json              # npm workspaces root
+├── README.md
+├── START-KINECT.command      # Double-click launcher (Mac Finder)
 ├── shared/protocol/          # Binary frame types + encode/decode
 │   └── src/
 │       ├── types.ts          # Frame types, MaskData, DepthData
 │       ├── encode.ts         # Frame → ArrayBuffer
-│       ├── decode.ts         # ArrayBuffer → Frame
+│       ├── decode.ts         # ArrayBuffer → Frame (with payload-size validation)
 │       └── index.ts
-├── apps/bridge/              # Node WebSocket server (mock)
+├── apps/bridge/              # Node WebSocket server (mock, no hardware needed)
 │   └── src/
 │       ├── index.ts          # WS server on :9876, frame loop
-│       ├── mock/             # MockKinectSource — synthetic humanoid
-│       └── kinect/           # KinectAdapter placeholder (Windows SDK)
-├── START-KINECT.command      # Double-click to start Kinect bridge (Mac)
-├── apps/kinect-bridge/       # Python WebSocket server (real Kinect on Mac/Linux)
-│   ├── kinect_bridge.py      # libfreenect → depth + mask → WS :9876
+│       └── mock/             # MockKinectSource — synthetic humanoid silhouette
+├── apps/kinect-bridge/       # Python WebSocket server (real Kinect v1 on Mac/Linux)
+│   ├── kinect_bridge.py      # libfreenect → DEPTH_MM/11-bit → mirror → mask → WS :9876
 │   ├── setup-and-run.sh      # One-shot: install deps + run bridge
-│   ├── install-freenect-from-source.sh  # Build freenect from libfreenect (PyPI package broken)
+│   ├── install-freenect-from-source.sh  # Build freenect from source (PyPI broken)
 │   ├── requirements.txt
 │   └── README.md
 └── apps/frontend/            # Vite + Three.js + lil-gui
     └── src/
         ├── main.ts           # Entry point, animation loop
-        ├── motion/           # MotionSource interface
+        ├── motion/
         │   ├── MotionSource.ts
-        │   ├── WebSocketStreamSource.ts
-        │   └── WebcamSegmentationSource.ts
+        │   └── WebSocketStreamSource.ts   # Kinect-only, auto-reconnect every 3 s
         ├── rendering/
-        │   ├── ParticleSystem.ts      # 80K particle pool, 4 shapes, depth coloring
-        │   ├── BackgroundStarfield.ts # 10K pool, 4 shapes, dual colors, twinkle
-        │   ├── TrailRenderer.ts       # Ping-pong feedback + filmic tonemap
-        │   └── SceneManager.ts        # Orchestration, source negotiation
+        │   ├── ParticleSystem.ts     # 80 K pool, 4 shapes, 2D depth+height color
+        │   ├── BackgroundStarfield.ts # 10 K pool, 4 shapes, dual colors, twinkle
+        │   ├── TrailRenderer.ts      # Ping-pong feedback + filmic tone-map
+        │   └── SceneManager.ts       # Separate bg/particle scenes, auto-reconnect
         ├── gui/
-        │   └── controls.ts            # AppParams + lil-gui setup
+        │   └── controls.ts           # AppParams + lil-gui setup
         └── debug/
-            └── DebugOverlay.ts        # Mask + depth visualiser
+            └── DebugOverlay.ts       # Mask + depth visualiser
 ```
 
 ## Tech Stack
 
 - **Frontend**: Vite + TypeScript + Three.js (WebGL2) + lil-gui
-- **Bridge**: Node.js + ws + tsx
-- **Segmentation fallback**: @mediapipe/tasks-vision (Selfie Segmenter)
+- **Kinect bridge**: Python 3 + libfreenect + numpy + websockets
+- **Mock bridge**: Node.js + ws + tsx
 - **Monorepo**: npm workspaces
 - **Protocol**: Custom binary WebSocket (shared TypeScript package)
 
 ## Next Steps
 
-- [ ] Real Kinect v1 bridge (C# → WebSocket on Windows)
-- [ ] Depth-based DOF (pseudo depth-of-field blur)
+- [ ] Windows: real Kinect SDK v1.8 bridge (C# → WebSocket)
+- [ ] Depth-based DOF (pseudo depth-of-field blur on far particles)
 - [ ] Bloom post-processing (UnrealBloomPass)
 - [ ] Skeleton tracking → particle interactions (hands attract/repel)
-- [ ] Multi-user support (user index > 1)
+- [ ] Multi-user support (multiple silhouettes)
 - [ ] Preset system (save/load parameter combinations)
-- [ ] Audio reactivity
-- [ ] Performance: GPU-based particle update (transform feedback / compute)
+- [ ] Audio reactivity (microphone → particle burst)
+- [ ] Performance: GPU-based particle update (transform feedback / compute shader)

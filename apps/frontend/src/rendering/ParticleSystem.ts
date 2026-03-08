@@ -11,20 +11,21 @@ const vertexShader = /* glsl */ `
 
   varying float vLife;
   varying float vDepthNorm;
+  varying float vWorldY;
 
   uniform float uSizeByDepth;
   uniform float uPixelRatio;
 
   void main() {
-    vLife = aLife;
+    vLife      = aLife;
     vDepthNorm = aDepthNorm;
+    vWorldY    = position.y;   // world-space Y for height-based color
 
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
 
-    // Near particles are larger
     float dScale = mix(1.0, max(0.2, 1.0 - aDepthNorm * 0.85), uSizeByDepth);
     float sz = aSize * dScale;
-    sz *= (250.0 / -mv.z);
+    sz *= (6.0 / -mv.z);
     sz *= uPixelRatio;
     sz *= smoothstep(0.0, 0.15, aLife);
 
@@ -36,10 +37,12 @@ const vertexShader = /* glsl */ `
 const fragmentShader = /* glsl */ `
   varying float vLife;
   varying float vDepthNorm;
+  varying float vWorldY;
 
   uniform float uAlphaByDepth;
   uniform float uIntensity;
   uniform float uShape;     // 0 dots, 1 stars, 2 dust, 3 bokeh
+  uniform float uSpread;    // world-space spread (for height normalisation)
   uniform vec3  uColorNear;
   uniform vec3  uColorFar;
 
@@ -74,7 +77,12 @@ const fragmentShader = /* glsl */ `
       if (shape < 0.008) discard;
     }
 
-    vec3 col = mix(uColorNear, uColorFar, vDepthNorm);
+    // Height-based color: warm at top (head), cool at bottom (feet)
+    // Combined with depth: creates rich 2D color gradient across the body
+    float halfH    = max(uSpread * 0.5, 0.5);
+    float heightT  = clamp(0.5 - vWorldY / (halfH * 2.0), 0.0, 1.0);
+    float colorT   = clamp(mix(vDepthNorm, heightT, 0.5), 0.0, 1.0);
+    vec3  col      = mix(uColorNear, uColorFar, colorT);
 
     float a = shape;
     a *= smoothstep(0.0, 0.25, vLife);
@@ -137,6 +145,7 @@ export class ParticleSystem {
         uPixelRatio: { value: Math.min(window.devicePixelRatio, 2) },
         uColorNear: { value: new THREE.Color(params.fgColorNear) },
         uColorFar: { value: new THREE.Color(params.fgColorFar) },
+        uSpread: { value: params.spread },
       },
     });
 
@@ -158,12 +167,13 @@ export class ParticleSystem {
   ) {
     // Sync uniforms
     const SHAPE_ID: Record<string, number> = { dots: 0, stars: 1, dust: 2, bokeh: 3 };
-    this.mat.uniforms.uSizeByDepth.value = p.sizeByDepth;
+    this.mat.uniforms.uSizeByDepth.value  = p.sizeByDepth;
     this.mat.uniforms.uAlphaByDepth.value = p.alphaByDepth;
-    this.mat.uniforms.uIntensity.value = p.particleIntensity;
-    this.mat.uniforms.uShape.value = SHAPE_ID[p.fgSparkleType] ?? 0;
+    this.mat.uniforms.uIntensity.value    = p.particleIntensity;
+    this.mat.uniforms.uShape.value        = SHAPE_ID[p.fgSparkleType] ?? 0;
+    this.mat.uniforms.uSpread.value       = p.spread;
     (this.mat.uniforms.uColorNear.value as THREE.Color).set(p.fgColorNear);
-    (this.mat.uniforms.uColorFar.value as THREE.Color).set(p.fgColorFar);
+    (this.mat.uniforms.uColorFar.value  as THREE.Color).set(p.fgColorFar);
 
     this.stepExisting(dt, p);
     if (mask) this.emit(mask, depth, p);
@@ -197,14 +207,15 @@ export class ParticleSystem {
 
       // Turbulence scaled by anim speed
       const spd = p.fgAnimSpeed;
-      vel[i3] += (Math.random() - 0.5) * 0.25 * dt * spd;
-      vel[i3 + 1] += (Math.random() - 0.5) * 0.2 * dt * spd + 0.025 * dt * spd;
-      vel[i3 + 2] += (Math.random() - 0.5) * 0.12 * dt * spd;
+      // Turbulence + persistent upward drift (particles float up like stardust)
+      vel[i3]     += (Math.random() - 0.5) * 0.6 * dt * spd;
+      vel[i3 + 1] += (Math.random() - 0.5) * 0.4 * dt * spd + 0.35 * dt * spd;
+      vel[i3 + 2] += (Math.random() - 0.5) * 0.3 * dt * spd;
 
-      // Damping
-      vel[i3] *= 0.994;
-      vel[i3 + 1] *= 0.994;
-      vel[i3 + 2] *= 0.994;
+      // Damping (stronger — keeps particles from flying off screen)
+      vel[i3]     *= 0.97;
+      vel[i3 + 1] *= 0.97;
+      vel[i3 + 2] *= 0.97;
     }
   }
 
@@ -247,14 +258,15 @@ export class ParticleSystem {
       this.positions[i3 + 1] = ny + (Math.random() - 0.5) * jitter;
       this.positions[i3 + 2] = z + (Math.random() - 0.5) * jitter * 0.5;
 
-      const isAura = Math.random() < 0.15;
-      const vScale = (isAura ? 0.12 : 0.35) * p.fgAnimSpeed;
-      this.velocities[i3] = (Math.random() - 0.5) * vScale;
-      this.velocities[i3 + 1] = (Math.random() - 0.5) * vScale + (isAura ? 0.02 : 0.06);
-      this.velocities[i3 + 2] = (Math.random() - 0.5) * vScale * 0.3;
+      const isAura = Math.random() < 0.18;
+      // Velocities are in world-units/sec; particles float up and scatter outward
+      const vScale = (isAura ? 0.5 : 1.8) * p.fgAnimSpeed;
+      this.velocities[i3]     = (Math.random() - 0.5) * vScale;
+      this.velocities[i3 + 1] = (Math.random() - 0.5) * vScale * 0.6 + (isAura ? 0.4 : 1.5) * p.fgAnimSpeed;
+      this.velocities[i3 + 2] = (Math.random() - 0.5) * vScale * 0.25;
 
-      this.lives[idx] = isAura ? 1.8 + Math.random() * 2.5 : 0.5 + Math.random() * 1.5;
-      this.sizes[idx] = p.baseSize * (isAura ? 1.8 + Math.random() * 2.5 : 0.4 + Math.random() * 1.0);
+      this.lives[idx] = isAura ? 1.0 + Math.random() * 2.0 : 0.3 + Math.random() * 0.8;
+      this.sizes[idx] = p.baseSize * (isAura ? 1.6 + Math.random() * 1.6 : 0.5 + Math.random() * 0.9);
       this.depthNorms[idx] = isAura ? Math.min(1, dn + 0.2) : dn;
 
       emitted++;
