@@ -18,7 +18,7 @@ Immersive real-time particle installation inspired by teamLab: a person's silhou
 
 ### Motion source
 
-The frontend connects exclusively to the Kinect bridge (`ws://localhost:9876`). If the bridge is offline, the app shows the background and retries the connection every 3 seconds — no webcam fallback, no camera permission prompt.
+The frontend connects exclusively to the Kinect bridge (`ws://localhost:XXXX`). If the bridge is offline, the app shows the background and retries the connection every 3 seconds — no webcam fallback, no camera permission prompt.
 
 | Source | Description |
 |--------|-------------|
@@ -28,7 +28,7 @@ The frontend connects exclusively to the Kinect bridge (`ws://localhost:9876`). 
 
 **Important:** run all commands from the project root. If the project is in `Desktop/Shadow Particle`, run first:
 ```bash
-cd ~/Desktop/App\ Rep/Shadow\ Particle
+cd ~/Desktop/Shadow Particle
 ```
 Or drag the project folder into the Terminal window to paste the full path.
 
