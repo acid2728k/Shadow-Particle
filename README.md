@@ -6,10 +6,10 @@ Immersive real-time particle installation inspired by teamLab: a person's silhou
 
 ```
 ┌─────────────────────────────┐   WebSocket (binary)   ┌──────────────────────────────┐
-│  Bridge                      │   depth + mask         │   Frontend (Vite / Three.js) │
-│  • Python: Kinect v1 (Mac)   │   320×240 @ 30 fps ──▶ │  • 80 K particle pool        │
-│  • Node: mock generator      │                        │  • Ping-pong feedback trails │
-│  • Windows: Kinect SDK v1.8  │                        │  • Background starfield      │
+│  Bridge                     │   depth + mask         │   Frontend (Vite / Three.js) │
+│  • Python: Kinect v1 (Mac)  │   320×240 @ 30 fps  ─▶│  • 80 K particle pool        │
+│  • Node: mock generator     │                        │  • Ping-pong feedback trails │
+│  • Windows: Kinect SDK v1.8 │                        │  • Background starfield      │
 └─────────────────────────────┘                        │  • lil-gui live controls     │
                                                        └──────────────────────────────┘
 ```
