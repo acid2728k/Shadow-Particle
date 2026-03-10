@@ -275,13 +275,3 @@ Shadow Particle/
 - **Monorepo**: npm workspaces
 - **Protocol**: Custom binary WebSocket (shared TypeScript package)
 
-## Next Steps
-
-- [ ] Windows: real Kinect SDK v1.8 bridge (C# → WebSocket)
-- [ ] Depth-based DOF (pseudo depth-of-field blur on far particles)
-- [ ] Bloom post-processing (UnrealBloomPass)
-- [ ] Skeleton tracking → particle interactions (hands attract/repel)
-- [ ] Multi-user support (multiple silhouettes)
-- [ ] Preset system (save/load parameter combinations)
-- [ ] Audio reactivity (microphone → particle burst)
-- [ ] Performance: GPU-based particle update (transform feedback / compute shader)
